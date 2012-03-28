@@ -69,8 +69,41 @@ if (isset($lang_bumpsage))
         
         if ($num_operator)
         {
-            // To not do last_post=(SELECT {...})
-            $db->query('INSERT INTO '.$db->prefix.'topics (id,last_post) SELECT T.id, P.posted FROM '.$db->prefix.'topics T INNER JOIN '.$db->prefix.'posts P ON T.last_post_id=P.id AND P.posted '.$operators[$num_operator].' T.last_post WHERE P.posted < '.(time()-3600*intval($_POST['older_than'])).' ON DUPLICATE KEY UPDATE last_post = VALUES(last_post)') or error('Unable to update topics', __FILE__, __LINE__, $db->error());
+            $older_than= intval($_POST['older_than']);
+
+            // Get topic id, last post date and forum id of topics removed from sage or bump
+            $result= $db->query('SELECT T.id, P.posted, T.forum_id FROM '.$db->prefix.'topics T INNER JOIN '.$db->prefix.'posts P ON T.last_post_id=P.id AND P.posted '.$operators[$num_operator].' T.last_post'.($older_than?' WHERE P.posted < '.(time()-3600*$older_than):'')) or error('Unable to get info on last post', __FILE__, __LINE__, $db->error());
+
+            if($db->num_rows($result))
+            {
+                $forum_ids= array();
+                $insert_topics_values= '';
+
+                // Get array of forums, and list of update to do on topics
+                for($i= 0; $cur_info_last= $db->fetch_row($result); $i++)
+                {
+                    $insert_topics_values.= ($insert_topics_values?',':'').'('.$cur_info_last[0].','.$cur_info_last[1].')';
+                    $forum_ids[]= $cur_info_last[2];
+                }
+
+                // Updating last_post of topics
+                $result= $db->query('INSERT INTO '.$db->prefix.'topics (id,last_post) VALUES '.$insert_topics_values.' ON DUPLICATE KEY UPDATE last_post = VALUES(last_post)') or error('Unable to update topics', __FILE__, __LINE__, $db->error());
+
+                // Remove duplicates
+                $forum_ids= array_flip(array_flip($forum_ids));
+
+                foreach($forum_ids as $forum_id)
+                {
+                    // Get the id of the topic with the newest reply
+                    $result= $db->query('SELECT id FROM '.$db->prefix.'topics WHERE forum_id='.$forum_id.' ORDER BY posted DESC, id DESC') or error('Unable to get id of last replied topic', __FILE__, __LINE__, $db->error());
+                    $topic_id= $db->result($result,0);
+
+                    // Update the forum
+                    $result= $db->query('INSERT INTO '.$db->prefix.'forums (id, last_post, last_post_id, last_poster) SELECT forum_id, last_post, last_post_id, last_poster FROM '.$db->prefix.'topics WHERE id='.$topic_id.' ON DUPLICATE KEY UPDATE last_post = VALUES(last_post), last_post_id= VALUES(last_post_id), last_poster= VALUES(last_poster)') or error('Unable to update topics', __FILE__, __LINE__, $db->error());
+                }
+
+                
+            }
         }
     }
 
