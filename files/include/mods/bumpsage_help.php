@@ -11,13 +11,11 @@ if (!defined('PUN'))
 	exit;
 
 // Load the mod_bump_sage.php language file
-if (file_exists(PUN_ROOT.'lang/'.$pun_user['language'].'/mod_bumpsage.php'))
-    require PUN_ROOT.'lang/'.$pun_user['language'].'/mod_bumpsage.php';
-elseif (file_exists(PUN_ROOT.'lang/English/mod_bumpsage.php'))
-    require PUN_ROOT.'lang/English/mod_bumpsage.php';
+@include (PUN_ROOT.'lang/'.$pun_user['language'].'/mod_bumpsage.php')
+    or @include (PUN_ROOT.'lang/English/mod_bumpsage.php');
 
-if(isset($lang_bumpsage))
-{
+if(!isset($lang_bumpsage))
+    return 1;
 
 ?>
 <h2><span><?php echo $lang_bumpsage['Bump Sage'] ?></span></h2>
@@ -30,7 +28,3 @@ if(isset($lang_bumpsage))
         <p><code><?php echo pun_htmlspecialchars($lang_bumpsage['sage']) ?></code> <?php echo $lang_bumpsage['at beginning of reply'].' '.$lang_help['produces'] ?> <samp><?php echo $lang_bumpsage['sage help'] ?></a></samp></p>
 	</div>
 </div>
-
-<?php
-
-}

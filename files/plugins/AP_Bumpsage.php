@@ -17,95 +17,96 @@ define('PUN_PLUGIN_LOADED', 1);
 generate_admin_menu($plugin);
 
 // Load the mod_bumpsage.php language file
-if (file_exists(PUN_ROOT.'lang/'.$pun_user['language'].'/mod_bumpsage.php'))
-    require PUN_ROOT.'lang/'.$pun_user['language'].'/mod_bumpsage.php';
-elseif (file_exists(PUN_ROOT.'lang/English/mod_bumpsage.php'))
-    require PUN_ROOT.'lang/English/mod_bumpsage.php';
+@include(PUN_ROOT.'lang/'.$pun_user['language'].'/mod_bumpsage.php')
+    or @include(PUN_ROOT.'lang/English/mod_bumpsage.php');
 
-
-if (isset($lang_bumpsage))
+// If no language file, bye bye
+if (!isset($lang_bumpsage))
 {
+	message("No mod_bumpsage language file");
+    return 1;
+}
 
-    // Changing permissions
-    if (isset($_POST['save_bump_sage']))
-    {
-        confirm_referrer('admin_loader.php');
-        
-        if (is_array($_POST['bump_in']))
-        {
-            $bump_in= '';
-            foreach($_POST['bump_in'] as $key => $value)
-                if(intval($key)>0) $bump_in.=($bump_in?',':'').$key;
-        }
-        if (is_array($_POST['sage_in']))
-        {
-            $sage_in= '';
-            foreach($_POST['sage_in'] as $key => $value)
-                if(intval($key)>0) $sage_in.=($sage_in?',':'').$key;
-        }
+// Changing permissions
+if (isset($_POST['save_bump_sage']))
+{
+    confirm_referrer('admin_loader.php');
     
-        $db->query('UPDATE '.$db->prefix.'groups SET g_bump_topics=0, g_sage_replies=0') or error('Unable to update groups', __FILE__, __LINE__, $db->error());
-        if($bump_in) $db->query('UPDATE '.$db->prefix.'groups SET g_bump_topics=1 WHERE g_id IN ('.$bump_in.')') or error('Unable to update groups', __FILE__, __LINE__, $db->error());
-        if($sage_in) $db->query('UPDATE '.$db->prefix.'groups SET g_sage_replies=1 WHERE g_id IN ('.$sage_in.')') or error('Unable to update groups', __FILE__, __LINE__, $db->error());
-    }
-
-    // Rebuilding last_post of topics date
-    if (isset($_POST['rebuild_last_date'], $_POST['older_than']))
+    if (is_array($_POST['bump_in']))
     {
-        confirm_referrer('admin_loader.php');
-         
-        $operators= array('','<','>','!=');
+        $bump_in= '';
+        foreach($_POST['bump_in'] as $key => $value)
+            if(intval($key)>0) $bump_in.=($bump_in?',':'').$key;
+    }
+    if (is_array($_POST['sage_in']))
+    {
+        $sage_in= '';
+        foreach($_POST['sage_in'] as $key => $value)
+            if(intval($key)>0) $sage_in.=($sage_in?',':'').$key;
+    }
 
-        $num_operator= 0;
+    $db->query('UPDATE '.$db->prefix.'groups SET g_bump_topics=0, g_sage_replies=0') or error('Unable to update groups', __FILE__, __LINE__, $db->error());
+    if($bump_in) $db->query('UPDATE '.$db->prefix.'groups SET g_bump_topics=1 WHERE g_id IN ('.$bump_in.')') or error('Unable to update groups', __FILE__, __LINE__, $db->error());
+    if($sage_in) $db->query('UPDATE '.$db->prefix.'groups SET g_sage_replies=1 WHERE g_id IN ('.$sage_in.')') or error('Unable to update groups', __FILE__, __LINE__, $db->error());
+}
 
-        if (isset($_POST['bump']))
+// Rebuilding last_post of topics date
+if (isset($_POST['rebuild_last_date'], $_POST['older_than']))
+{
+    confirm_referrer('admin_loader.php');
+     
+    $operators= array('','<','>','!=');
+
+    $num_operator= 0;
+
+    if (isset($_POST['bump']))
+    {
+        $num_operator+= 1;
+    }
+    if (isset($_POST['sage']))
+    {
+        $num_operator+= 2;
+    }
+    
+    if ($num_operator)
+    {
+        $older_than= intval($_POST['older_than']);
+
+        // Get topic id, last post date and forum id of topics removed from sage or bump
+        $result= $db->query('SELECT T.id, P.posted, T.forum_id FROM '.$db->prefix.'topics T INNER JOIN '.$db->prefix.'posts P ON T.last_post_id=P.id AND P.posted '.$operators[$num_operator].' T.last_post'.($older_than?' WHERE P.posted < '.(time()-3600*$older_than):'')) or error('Unable to get info on last post', __FILE__, __LINE__, $db->error());
+
+        if($db->num_rows($result))
         {
-            $num_operator+= 1;
-        }
-        if (isset($_POST['sage']))
-        {
-            $num_operator+= 2;
-        }
-        
-        if ($num_operator)
-        {
-            $older_than= intval($_POST['older_than']);
+            $forum_ids= array();
+            $insert_topics_values= '';
 
-            // Get topic id, last post date and forum id of topics removed from sage or bump
-            $result= $db->query('SELECT T.id, P.posted, T.forum_id FROM '.$db->prefix.'topics T INNER JOIN '.$db->prefix.'posts P ON T.last_post_id=P.id AND P.posted '.$operators[$num_operator].' T.last_post'.($older_than?' WHERE P.posted < '.(time()-3600*$older_than):'')) or error('Unable to get info on last post', __FILE__, __LINE__, $db->error());
-
-            if($db->num_rows($result))
+            // Get array of forums, and list of update to do on topics
+            for($i= 0; $cur_info_last= $db->fetch_row($result); $i++)
             {
-                $forum_ids= array();
-                $insert_topics_values= '';
-
-                // Get array of forums, and list of update to do on topics
-                for($i= 0; $cur_info_last= $db->fetch_row($result); $i++)
-                {
-                    $insert_topics_values.= ($insert_topics_values?',':'').'('.$cur_info_last[0].','.$cur_info_last[1].')';
-                    $forum_ids[]= $cur_info_last[2];
-                }
-
-                // Updating last_post of topics
-                $result= $db->query('INSERT INTO '.$db->prefix.'topics (id,last_post) VALUES '.$insert_topics_values.' ON DUPLICATE KEY UPDATE last_post = VALUES(last_post)') or error('Unable to update topics', __FILE__, __LINE__, $db->error());
-
-                // Remove duplicates
-                $forum_ids= array_flip(array_flip($forum_ids));
-
-                foreach($forum_ids as $forum_id)
-                {
-                    // Get the id of the topic with the newest reply
-                    $result= $db->query('SELECT id FROM '.$db->prefix.'topics WHERE forum_id='.$forum_id.' ORDER BY posted DESC, id DESC') or error('Unable to get id of last replied topic', __FILE__, __LINE__, $db->error());
-                    $topic_id= $db->result($result,0);
-
-                    // Update the forum
-                    $result= $db->query('INSERT INTO '.$db->prefix.'forums (id, last_post, last_post_id, last_poster) SELECT forum_id, last_post, last_post_id, last_poster FROM '.$db->prefix.'topics WHERE id='.$topic_id.' ON DUPLICATE KEY UPDATE last_post = VALUES(last_post), last_post_id= VALUES(last_post_id), last_poster= VALUES(last_poster)') or error('Unable to update topics', __FILE__, __LINE__, $db->error());
-                }
-
-                
+                $insert_topics_values.= ($insert_topics_values?',':'').'('.$cur_info_last[0].','.$cur_info_last[1].')';
+                $forum_ids[]= $cur_info_last[2];
             }
+
+            // Updating last_post of topics
+            $result= $db->query('INSERT INTO '.$db->prefix.'topics (id,last_post) VALUES '.$insert_topics_values.' ON DUPLICATE KEY UPDATE last_post = VALUES(last_post)') or error('Unable to update topics', __FILE__, __LINE__, $db->error());
+
+            // Remove duplicates
+            $forum_ids= array_flip(array_flip($forum_ids));
+
+            foreach($forum_ids as $forum_id)
+            {
+                // Get the id of the topic with the newest reply
+                $result= $db->query('SELECT id FROM '.$db->prefix.'topics WHERE forum_id='.$forum_id.' ORDER BY posted DESC, id DESC') or error('Unable to get id of last replied topic', __FILE__, __LINE__, $db->error());
+                $topic_id= $db->result($result,0);
+
+                // Update the forum
+                $result= $db->query('INSERT INTO '.$db->prefix.'forums (id, last_post, last_post_id, last_poster) SELECT forum_id, last_post, last_post_id, last_poster FROM '.$db->prefix.'topics WHERE id='.$topic_id.' ON DUPLICATE KEY UPDATE last_post = VALUES(last_post), last_post_id= VALUES(last_post_id), last_poster= VALUES(last_poster)') or error('Unable to update topics', __FILE__, __LINE__, $db->error());
+            }
+
+            
         }
     }
+}
 
 ?>
 
@@ -179,9 +180,3 @@ while ($cur_group = $db->fetch_assoc($result)) { ?>
 
     </div>
     <div class="clearer"></div>
-
-<?php
-
-}
-
-?>

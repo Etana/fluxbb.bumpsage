@@ -50,7 +50,7 @@ files/lang/English/mod_bumpsage.php to /lang/English/mod_bumpsage.php
 
 files/lang/French/mod_bumpsage.php to /lang/French/mod_bumpsage.php
 
-files/include/mods/bumpsage.php to /include/mods/bumpsage.php
+files/include/mods/bumpsage.php to /include/mods/bumpsage_post.php
 
 files/include/mods/bumpsage.php to /include/mods/bumpsage_help.php
 
@@ -90,7 +90,8 @@ post.php
 #
 
 			// Update topic
-			$db->query('UPDATE '.$db->prefix.'topics SET num_replies='.$num_replies.($sage?'':', last_post='.$now).', last_post_id='.$new_pid.', last_poster=\''.$db->escape($username).'\' WHERE id='.$tid) or error('Unable to update topic', __FILE__, __LINE__, $db->error());
+            $set_append= $sage ? '' : ', last_post='.$now;
+			$db->query('UPDATE '.$db->prefix.'topics SET num_replies='.$num_replies.$set_append.', last_post_id='.$new_pid.', last_poster=\''.$db->escape($username).'\' WHERE id='.$tid) or error('Unable to update topic', __FILE__, __LINE__, $db->error());
 
 
 #
@@ -105,8 +106,7 @@ post.php
 #
 
 
-    if (file_exists(PUN_ROOT.'include/mods/bumpsage.php'))
-        include PUN_ROOT.'include/mods/bumpsage.php';
+    @include (PUN_ROOT.'include/mods/bumpsage_post.php');
 
 
 #
@@ -128,8 +128,7 @@ require PUN_ROOT.'footer.php';
 #
 
 
-if (file_exists(PUN_ROOT.'include/mods/bumpsage_help.php'))
-        include PUN_ROOT.'include/mods/bumpsage_help.php';
+@include (PUN_ROOT.'include/mods/bumpsage_help.php');
 
 
 
