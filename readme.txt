@@ -50,9 +50,9 @@ files/lang/English/mod_bumpsage.php to /lang/English/mod_bumpsage.php
 
 files/lang/French/mod_bumpsage.php to /lang/French/mod_bumpsage.php
 
-files/include/mods/bumpsage.php to /include/mods/bumpsage_post.php
+files/include/mods/bumpsage_post.php to /include/mods/bumpsage_post.php
 
-files/include/mods/bumpsage.php to /include/mods/bumpsage_help.php
+files/include/mods/bumpsage_help.php to /include/mods/bumpsage_help.php
 
 files/plugins/AP_Bumpsage.php to /plugins/AP_Bumpsage.php
 
