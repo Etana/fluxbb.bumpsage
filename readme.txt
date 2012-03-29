@@ -91,7 +91,7 @@ post.php
 
 			// Update topic
             $set_append= $sage ? '' : ', last_post='.$now;
-			$db->query('UPDATE '.$db->prefix.'topics SET num_replies='.$num_replies.$set_append.', last_post_id='.$new_pid.', last_poster=\''.$db->escape($username).'\' WHERE id='.$tid) or error('Unable to update topic', __FILE__, __LINE__, $db->error());
+            $db->query('UPDATE '.$db->prefix.'topics SET num_replies='.$num_replies.$set_append.', last_post_id='.$new_pid.', last_poster=\''.$db->escape($username).'\' WHERE id='.$tid) or error('Unable to update topic', __FILE__, __LINE__, $db->error());
 
 
 #
